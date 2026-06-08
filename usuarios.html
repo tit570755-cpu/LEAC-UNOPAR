@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuários - LabSystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+      <div class="search-bar">
+        <div style="flex:1;"></div>
+        <button class="btn btn-primary" onclick="openModal('modalUsuario');resetForm();">➕ Novo Usuário</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔑 Controle de Acesso — Usuários do Sistema</span></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Usuário</th><th>Email</th><th>Perfil</th><th>Status</th><th>Último Acesso</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="tabelaUsuarios"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header"><span class="card-title">🛡️ Permissões por Perfil</span></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+            ${[
+              { role: '📋 Recepção', color: 'var(--accent)', items: ['Cadastrar pacientes','Ver/criar requisições','Consultar exames','Visualizar laudos','Editar dados de pacientes'] },
+              { role: '🔬 Biomédico', color: 'var(--primary-light)', items: ['Tudo da Recepção','Inserir resultados de exames','Assinar e gerar laudos PDF','Visualizar relatórios'] },
+              { role: '👑 Administrador', color: 'var(--danger)', items: ['Acesso total ao sistema','Gerenciar usuários','Anonimizar dados (LGPD)','Ver logs de auditoria','Configurações do sistema'] }
+            ].map(p => `
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;">
+              <div style="font-weight:700;margin-bottom:12px;color:${p.color};">${p.role}</div>
+              ${p.items.map(i => `<div style="font-size:0.8rem;color:var(--text-secondary);padding:4px 0;display:flex;gap:6px;align-items:center;"><span style="color:var(--success-light);">✓</span> ${i}</div>`).join('')}
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modalUsuario" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🔑 <span id="titleModalUsuario">Novo Usuário</span></span>
+      <button class="modal-close" onclick="closeModal('modalUsuario')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="usuarioId">
+      <div class="form-group">
+        <label class="form-label">Nome Completo *</label>
+        <input type="text" class="form-control" id="uNome" placeholder="Nome do usuário">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input type="email" class="form-control" id="uEmail" placeholder="email@labsystem.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Perfil de Acesso *</label>
+        <select class="form-control" id="uPapel">
+          <option value="recepcao">📋 Recepção</option>
+          <option value="biomedico">🔬 Biomédico</option>
+          <option value="admin">👑 Administrador</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha *</label>
+        <input type="password" class="form-control" id="uSenha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-control" id="uAtivo">
+          <option value="1">✅ Ativo</option>
+          <option value="0">❌ Inativo</option>
+        </select>
+      </div>
+      <div class="alert alert-info" style="margin-top:8px;">
+        🔒 A senha é armazenada com hash bcrypt (custo 12). Nunca é armazenada em texto claro.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalUsuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarUsuario()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+requireAuth();
+document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+document.getElementById('topbarContainer').innerHTML = renderTopbar('Usuários', 'Gestão de acesso ao sistema');
+initSidebar('usuarios');
+
+// Only admins
+const me = getUser();
+if (me?.papel !== 'admin') { showToast('Acesso restrito a administradores', 'error'); setTimeout(() => window.location.href='dashboard.html', 2000); }
+
+async function loadUsuarios() {
+  const usuarios = await apiRequest('/usuarios');
+  document.getElementById('tabelaUsuarios').innerHTML = usuarios.map(u => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;">${u.nome.charAt(0)}</div>
+          <div><div style="font-weight:600;font-size:0.875rem;">${u.nome}</div></div>
+        </div>
+      </td>
+      <td style="font-size:0.8rem;color:var(--text-secondary);">${u.email}</td>
+      <td>${formatPapel(u.papel)}</td>
+      <td><span class="badge ${u.ativo ? 'badge-success' : 'badge-gray'}">${u.ativo ? '✅ Ativo' : '❌ Inativo'}</span></td>
+      <td style="font-size:0.8rem;color:var(--text-secondary);">${u.ultimo_acesso ? formatDateTime(u.ultimo_acesso) : 'Nunca'}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="editarUsuario(${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️</button>
+          ${u.id !== me.id ? `<button class="btn btn-danger btn-sm" onclick="desativarUsuario(${u.id}, '${u.nome}')">${u.ativo ? '🚫 Desativar' : '✅ Ativar'}</button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function resetForm() {
+  document.getElementById('usuarioId').value = '';
+  document.getElementById('titleModalUsuario').textContent = 'Novo Usuário';
+  document.getElementById('uNome').value = '';
+  document.getElementById('uEmail').value = '';
+  document.getElementById('uPapel').value = 'recepcao';
+  document.getElementById('uSenha').value = '';
+  document.getElementById('uAtivo').value = '1';
+}
+
+function editarUsuario(u) {
+  if (typeof u === 'string') u = JSON.parse(u);
+  document.getElementById('usuarioId').value = u.id;
+  document.getElementById('titleModalUsuario').textContent = 'Editar Usuário';
+  document.getElementById('uNome').value = u.nome;
+  document.getElementById('uEmail').value = u.email;
+  document.getElementById('uPapel').value = u.papel;
+  document.getElementById('uAtivo').value = u.ativo;
+  document.getElementById('uSenha').value = '';
+  openModal('modalUsuario');
+}
+
+async function salvarUsuario() {
+  const id = document.getElementById('usuarioId').value;
+  const payload = {
+    nome: document.getElementById('uNome').value,
+    email: document.getElementById('uEmail').value,
+    papel: document.getElementById('uPapel').value,
+    senha: document.getElementById('uSenha').value,
+    ativo: parseInt(document.getElementById('uAtivo').value)
+  };
+  if (!payload.nome || !payload.email) { showToast('Nome e email são obrigatórios', 'warning'); return; }
+  if (!id && !payload.senha) { showToast('Senha é obrigatória para novos usuários', 'warning'); return; }
+  try {
+    if (id) await apiRequest(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    else await apiRequest('/usuarios', { method: 'POST', body: JSON.stringify(payload) });
+    showToast(id ? 'Usuário atualizado' : 'Usuário criado', 'success');
+    closeModal('modalUsuario');
+    loadUsuarios();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function desativarUsuario(id, nome) {
+  if (!await confirmAction(`Desativar o usuário "${nome}"?`)) return;
+  try {
+    await apiRequest(`/usuarios/${id}`, { method: 'DELETE' });
+    showToast('Usuário desativado', 'warning');
+    loadUsuarios();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+loadUsuarios();
+</script>
+</body>
+</html>

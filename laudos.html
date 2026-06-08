@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laudos - LabSystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+      <div class="search-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" placeholder="Buscar laudos..." id="searchLaudo">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📄 Laudos Emitidos</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nº Laudo</th>
+                <th>Paciente</th>
+                <th>Requisição</th>
+                <th>Status</th>
+                <th>Responsável Técnico</th>
+                <th>Data Assinatura</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaLaudos">
+              <tr><td colspan="7"><div class="empty-state"><div class="spinner-lg"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+requireAuth();
+document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+document.getElementById('topbarContainer').innerHTML = renderTopbar('Laudos', 'Laudos laboratoriais e PDFs');
+initSidebar('laudos');
+
+async function loadLaudos() {
+  try {
+    const laudos = await apiRequest('/laudos');
+    const tbody = document.getElementById('tabelaLaudos');
+    if (!laudos.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📄</div><h3>Nenhum laudo emitido</h3><p>Laudos são gerados a partir das requisições em status "Análise" ou "Liberado".</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = laudos.map(l => `
+      <tr>
+        <td style="font-family:monospace;font-weight:600;">${l.numero_laudo}</td>
+        <td>${l.paciente_nome}</td>
+        <td style="font-family:monospace;font-size:0.8rem;">${l.req_numero}</td>
+        <td><span class="badge ${l.status==='assinado'?'badge-success':l.status==='enviado'?'badge-primary':'badge-warning'}">${l.status==='assinado'?'✅ Assinado':l.status==='enviado'?'📨 Enviado':'📝 Rascunho'}</span></td>
+        <td style="font-size:0.8rem;">${l.rt_nome || '—'}<br><span style="color:var(--text-muted);font-size:0.72rem;">${l.rt_crbm || ''}</span></td>
+        <td style="font-size:0.8rem;color:var(--text-secondary);">${formatDateTime(l.data_assinatura)}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            ${l.pdf_path ? `<a href="${l.pdf_path}" target="_blank" class="btn btn-primary btn-sm">📥 PDF</a>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="regerarLaudo(${l.requisicao_id})">🔄 Regerar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch { showToast('Erro ao carregar laudos', 'error'); }
+}
+
+async function regerarLaudo(reqId) {
+  if (!await confirmAction('Regerar o laudo desta requisição?')) return;
+  try {
+    showLoading();
+    const data = await apiRequest(`/laudos/gerar/${reqId}`, { method: 'POST' });
+    hideLoading();
+    showToast('Laudo regerado com sucesso!', 'success');
+    window.open(data.pdf_url, '_blank');
+    loadLaudos();
+  } catch (err) { hideLoading(); showToast(err.message, 'error'); }
+}
+
+loadLaudos();
+</script>
+</body>
+</html>

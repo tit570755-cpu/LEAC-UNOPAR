@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - LabSystem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+      <!-- KPI GRID -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card" style="--kpi-color:#F59E0B; --kpi-bg:rgba(245,158,11,0.1);">
+          <div class="kpi-header">
+            <span class="kpi-label">Pendentes Hoje</span>
+            <div class="kpi-icon">⏳</div>
+          </div>
+          <div class="kpi-value" id="kpiPendentes">—</div>
+          <div class="kpi-sub">requisições aguardando</div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:#06B6D4; --kpi-bg:rgba(6,182,212,0.1);">
+          <div class="kpi-header">
+            <span class="kpi-label">Em Análise</span>
+            <div class="kpi-icon">🧪</div>
+          </div>
+          <div class="kpi-value" id="kpiAnalise">—</div>
+          <div class="kpi-sub">exames no laboratório</div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:#10B981; --kpi-bg:rgba(16,185,129,0.1);">
+          <div class="kpi-header">
+            <span class="kpi-label">Liberados Hoje</span>
+            <div class="kpi-icon">✅</div>
+          </div>
+          <div class="kpi-value" id="kpiLiberados">—</div>
+          <div class="kpi-sub">laudos emitidos</div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:#DC2626; --kpi-bg:rgba(220,38,38,0.1);">
+          <div class="kpi-header">
+            <span class="kpi-label">Urgentes</span>
+            <div class="kpi-icon">🚨</div>
+          </div>
+          <div class="kpi-value" id="kpiUrgentes">—</div>
+          <div class="kpi-sub">prioridade máxima</div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:#10B981; --kpi-bg:rgba(16,185,129,0.1);">
+          <div class="kpi-header">
+            <span class="kpi-label">Faturamento Hoje</span>
+            <div class="kpi-icon">💰</div>
+          </div>
+          <div class="kpi-value" id="kpiFatHoje" style="font-size:1.4rem;">—</div>
+          <div class="kpi-sub" id="kpiFatMes">mês: —</div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:#7C3AED; --kpi-bg:rgba(124,58,237,0.1);">
+          <div class="kpi-header">
+            <span class="kpi-label">Pacientes</span>
+            <div class="kpi-icon">👥</div>
+          </div>
+          <div class="kpi-value" id="kpiPacientes">—</div>
+          <div class="kpi-sub" id="kpiNovos">novos este mês: —</div>
+        </div>
+      </div>
+
+      <!-- CHARTS + RECENT -->
+      <div class="dashboard-grid">
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <!-- Faturamento Chart -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">📈 Faturamento — Últimos 7 Dias</span>
+              <span class="badge badge-success">Atualizado</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="faturamentoChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Exames mais solicitados -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">🏆 Exames Mais Solicitados (30 dias)</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div id="examesMaisSolicitados"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <!-- Status pie -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">📊 Status da Semana</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-container" style="height:180px;">
+                <canvas id="statusChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Últimas requisições -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">🕐 Últimas Requisições</span>
+              <button class="btn btn-ghost btn-sm" onclick="window.location.href='requisicoes.html'">Ver todas →</button>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div id="ultimasRequisicoes"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+  requireAuth();
+  document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+  document.getElementById('topbarContainer').innerHTML = renderTopbar('Dashboard', 'Visão geral do laboratório');
+  initSidebar('dashboard');
+
+  let faturamentoChart, statusChart;
+
+  async function loadDashboard() {
+    try {
+      const data = await apiRequest('/dashboard');
+      
+      // KPIs
+      document.getElementById('kpiPendentes').textContent = data.hoje.pendentes || 0;
+      document.getElementById('kpiAnalise').textContent = (data.hoje.em_analise || 0) + (data.hoje.em_coleta || 0);
+      document.getElementById('kpiLiberados').textContent = data.hoje.liberados || 0;
+      document.getElementById('kpiUrgentes').textContent = data.hoje.urgentes || 0;
+      document.getElementById('kpiFatHoje').textContent = formatCurrency(data.hoje.faturamento);
+      document.getElementById('kpiFatMes').textContent = `mês: ${formatCurrency(data.mes.faturamento)}`;
+      document.getElementById('kpiPacientes').textContent = data.pacientes.total || 0;
+      document.getElementById('kpiNovos').textContent = `novos este mês: ${data.pacientes.novos_mes || 0}`;
+
+      // Faturamento chart
+      const fat7 = data.faturamento_7dias || [];
+      if (faturamentoChart) faturamentoChart.destroy();
+      faturamentoChart = new Chart(document.getElementById('faturamentoChart'), {
+        type: 'line',
+        data: {
+          labels: fat7.map(d => new Date(d.dia + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })),
+          datasets: [{
+            label: 'Faturamento (R$)',
+            data: fat7.map(d => d.total),
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#3B82F6',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#64748B', font: { size: 11 } }, grid: { color: 'rgba(100,116,139,0.1)' } },
+            y: { ticks: { color: '#64748B', font: { size: 11 }, callback: v => 'R$ ' + v.toLocaleString('pt-BR') }, grid: { color: 'rgba(100,116,139,0.1)' } }
+          }
+        }
+      });
+
+      // Status chart
+      const statusData = data.por_status_semana || [];
+      const statusMap = { pendente: '#F59E0B', coleta: '#06B6D4', triagem: '#7C3AED', analise: '#3B82F6', liberado: '#10B981', cancelado: '#64748B' };
+      const statusLabels = { pendente: 'Pendente', coleta: 'Coleta', triagem: 'Triagem', analise: 'Análise', liberado: 'Liberado', cancelado: 'Cancelado' };
+      
+      if (statusChart) statusChart.destroy();
+      statusChart = new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+          labels: statusData.map(s => statusLabels[s.status] || s.status),
+          datasets: [{
+            data: statusData.map(s => s.count),
+            backgroundColor: statusData.map(s => statusMap[s.status] || '#64748B'),
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#94A3B8', font: { size: 11 }, boxWidth: 12, padding: 10 } }
+          },
+          cutout: '65%'
+        }
+      });
+
+      // Exames mais solicitados
+      const exames = data.exames_mais_solicitados || [];
+      const maxVal = Math.max(...exames.map(e => e.total), 1);
+      document.getElementById('examesMaisSolicitados').innerHTML = exames.length === 0 
+        ? '<div class="empty-state"><div class="empty-state-icon">🧪</div><p>Nenhum dado ainda</p></div>'
+        : `<div style="padding:8px 0;">
+          ${exames.map((e, i) => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border-light);">
+              <span style="font-size:0.8rem;color:var(--text-muted);width:20px;text-align:right;">${i+1}</span>
+              <span style="flex:1;font-size:0.875rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.nome}</span>
+              <div style="width:80px;height:4px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="width:${Math.round((e.total/maxVal)*100)}%;height:100%;background:var(--primary-light);border-radius:4px;"></div>
+              </div>
+              <span class="badge badge-primary">${e.total}x</span>
+            </div>
+          `).join('')}
+        </div>`;
+
+      // Últimas requisições
+      const ultimas = data.ultimas_requisicoes || [];
+      document.getElementById('ultimasRequisicoes').innerHTML = ultimas.length === 0
+        ? '<div class="empty-state"><div class="empty-state-icon">📋</div><p>Nenhuma requisição</p></div>'
+        : `<div style="padding:8px 0;">
+          ${ultimas.map(r => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-light);cursor:pointer;" onclick="window.location.href='requisicoes.html'">
+              ${r.urgente ? '<span class="urgente-dot"></span>' : '<span style="width:12px;"></span>'}
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.paciente_nome}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);">${r.numero} · ${formatDate(r.data_solicitacao)}</div>
+              </div>
+              ${formatStatus(r.status)}
+            </div>
+          `).join('')}
+        </div>`;
+    } catch (err) {
+      console.error('Erro ao carregar dashboard:', err);
+      showToast('Erro ao carregar dados do dashboard', 'error');
+    }
+  }
+
+  loadDashboard();
+  setInterval(loadDashboard, 60000); // Auto-refresh every 60s
+</script>
+</body>
+</html>

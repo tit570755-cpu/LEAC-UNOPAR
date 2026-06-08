@@ -1,0 +1,17 @@
+# Ignorar dependências do Node.js
+backend/node_modules/
+node_modules/
+
+# Ignorar banco de dados local SQLite e logs
+backend/database/*.db
+backend/database/*.db-journal
+backend/logs/
+backend/uploads/
+
+# Arquivos de ambiente e logs locais do VS Code/OS
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.system_generated/
+*.log

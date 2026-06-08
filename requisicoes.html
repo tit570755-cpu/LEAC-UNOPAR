@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Requisições - LabSystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+
+      <!-- Filter Bar -->
+      <div class="search-bar">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" id="filtroTodos" onclick="filtrarStatus('')">Todos</button>
+          <button class="btn btn-ghost btn-sm" onclick="filtrarStatus('pendente')">⏳ Pendentes</button>
+          <button class="btn btn-ghost btn-sm" onclick="filtrarStatus('coleta')">💉 Coleta</button>
+          <button class="btn btn-ghost btn-sm" onclick="filtrarStatus('analise')">🧪 Análise</button>
+          <button class="btn btn-ghost btn-sm" onclick="filtrarStatus('liberado')">✅ Liberados</button>
+        </div>
+        <div style="margin-left:auto;">
+          <button class="btn btn-primary" onclick="abrirNovaRequisicao()">
+            ➕ Nova Requisição
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 Requisições de Exames</span>
+          <span id="totalReqs" class="badge badge-primary">—</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nº Req.</th>
+                <th>Paciente</th>
+                <th>Exames</th>
+                <th>Solicitante</th>
+                <th>Data</th>
+                <th>Status</th>
+                <th>Urgente</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaRequisicoes"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Nova Requisição -->
+<div class="modal-overlay" id="modalNovaReq" style="display:none;">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <span class="modal-title">📋 Nova Requisição de Exames</span>
+      <button class="modal-close" onclick="closeModal('modalNovaReq')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Paciente *</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" class="form-control" id="reqPacienteNome" placeholder="Buscar paciente..." readonly style="flex:1;">
+            <button class="btn btn-ghost btn-sm" onclick="buscarPaciente()">🔍 Buscar</button>
+          </div>
+          <input type="hidden" id="reqPacienteId">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Médico Solicitante</label>
+          <select class="form-control" id="reqProfissional">
+            <option value="">Selecione o médico</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Convênio</label>
+          <select class="form-control" id="reqConvenio">
+            <option value="">Particular</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° Guia</label>
+          <input type="text" class="form-control" id="reqNumGuia" placeholder="Número da guia do convênio">
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Observações</label>
+          <input type="text" class="form-control" id="reqObs" placeholder="Observações clínicas relevantes">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="reqUrgente" style="width:18px;height:18px;accent-color:var(--danger);">
+          <label for="reqUrgente" style="font-size:0.875rem;font-weight:600;color:var(--danger-light);cursor:pointer;">🚨 Requisição URGENTE</label>
+        </div>
+      </div>
+
+      <div style="margin-top:8px;">
+        <label class="form-label" style="margin-bottom:12px;display:block;">🧪 Selecionar Exames *</label>
+        
+        <!-- Categoria filter chips -->
+        <div class="chip-group" id="categoriaChips" style="margin-bottom:12px;"></div>
+        
+        <!-- Exam search -->
+        <div class="search-input-wrapper" style="margin-bottom:12px;">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="exameSearch" placeholder="Buscar exame por nome ou código..." oninput="filtrarExames()">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <!-- Available exams -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Exames Disponíveis</div>
+            <div id="listaExames" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);"></div>
+          </div>
+          <!-- Selected exams -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:700;color:var(--success-light);text-transform:uppercase;margin-bottom:8px;">
+              Exames Selecionados (<span id="totalSelecionados">0</span>)
+            </div>
+            <div id="exameSelecionados" style="max-height:280px;overflow-y:auto;border:1px dashed var(--success);border-radius:var(--radius);padding:8px;background:rgba(5,150,105,0.05);">
+              <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">Nenhum exame selecionado</div>
+            </div>
+            <div style="margin-top:8px;font-weight:700;font-size:0.875rem;color:var(--success-light);text-align:right;">
+              Total: <span id="totalPreco">R$ 0,00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalNovaReq')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarRequisicao()">📋 Criar Requisição</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalhes Requisição -->
+<div class="modal-overlay" id="modalDetalhesReq" style="display:none;">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <span class="modal-title" id="titleDetalhesReq">📋 Detalhes da Requisição</span>
+      <button class="modal-close" onclick="closeModal('modalDetalhesReq')">✕</button>
+    </div>
+    <div class="modal-body" id="detalhesReqContent"></div>
+  </div>
+</div>
+
+<!-- Modal busca paciente -->
+<div class="modal-overlay" id="modalBuscaPaciente" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🔍 Buscar Paciente</span>
+      <button class="modal-close" onclick="closeModal('modalBuscaPaciente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="search-input-wrapper" style="margin-bottom:12px;">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="buscaPacienteInput" placeholder="Nome, CPF..." oninput="debounce(doBuscarPaciente, 300)()">
+      </div>
+      <div id="resultadosBusca" style="max-height:300px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+requireAuth();
+document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+document.getElementById('topbarContainer').innerHTML = renderTopbar('Requisições', 'Fluxo de exames laboratoriais');
+initSidebar('requisicoes');
+
+let statusFiltro = '';
+let todosExames = [];
+let categorias = [];
+let exameSelecionadosList = [];
+let catFiltro = null;
+
+async function loadRequisicoes() {
+  try {
+    const url = statusFiltro ? `/requisicoes?status=${statusFiltro}` : '/requisicoes';
+    const data = await apiRequest(url);
+    document.getElementById('totalReqs').textContent = `${data.length} req.`;
+    const tbody = document.getElementById('tabelaRequisicoes');
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📋</div><h3>Nenhuma requisição encontrada</h3></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(r => `
+      <tr style="${r.urgente ? 'border-left:3px solid var(--danger);' : ''}">
+        <td style="font-family:monospace;font-weight:600;font-size:0.8rem;">${r.numero}</td>
+        <td>
+          <div style="font-weight:600;">${r.paciente_nome}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);">${r.cpf_mask || ''}</div>
+        </td>
+        <td>
+          <span class="badge badge-info">${r.total_exames} exame(s)</span>
+          ${r.exames_concluidos > 0 ? `<span class="badge badge-success" style="margin-left:4px;">${r.exames_concluidos} ok</span>` : ''}
+        </td>
+        <td style="font-size:0.8rem;">${r.profissional_nome || '—'}</td>
+        <td style="font-size:0.8rem;color:var(--text-secondary);">${formatDateTime(r.data_solicitacao)}</td>
+        <td>${formatStatus(r.status)}</td>
+        <td>${r.urgente ? '<span class="urgente-dot"></span><span style="font-size:0.75rem;color:var(--danger);">URGENTE</span>' : '—'}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="verDetalhesReq(${r.id})" title="Ver detalhes">👁️</button>
+            ${r.status !== 'liberado' && r.status !== 'cancelado' ? `
+              <button class="btn btn-ghost btn-sm" onclick="avancarStatus(${r.id}, '${r.status}')" title="Avançar status">▶️</button>
+            ` : ''}
+            ${r.status === 'analise' ? `<button class="btn btn-success btn-sm" onclick="verDetalhesReq(${r.id})">🧪 Resultados</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) { showToast('Erro ao carregar requisições', 'error'); }
+}
+
+function filtrarStatus(s) {
+  statusFiltro = s;
+  document.querySelectorAll('.search-bar .btn-ghost').forEach(b => b.style.background = '');
+  event?.target?.style && (event.target.style.background = 'var(--primary-glass)');
+  loadRequisicoes();
+}
+
+const statusFlow = ['pendente','coleta','triagem','analise','liberado'];
+async function avancarStatus(id, statusAtual) {
+  const idx = statusFlow.indexOf(statusAtual);
+  if (idx < 0 || idx >= statusFlow.length - 1) return;
+  const proximo = statusFlow[idx + 1];
+  const labels = {coleta:'Em Coleta',triagem:'Triagem',analise:'Em Análise',liberado:'Liberado'};
+  if (!await confirmAction(`Avançar status para: "${labels[proximo] || proximo}"?`)) return;
+  try {
+    await apiRequest(`/requisicoes/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: proximo }) });
+    showToast(`Status atualizado: ${labels[proximo]}`, 'success');
+    loadRequisicoes();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function verDetalhesReq(id) {
+  try {
+    const r = await apiRequest(`/requisicoes/${id}`);
+    document.getElementById('titleDetalhesReq').textContent = `📋 Requisição ${r.numero}`;
+    
+    const statusFlow2 = ['pendente','coleta','triagem','analise','liberado'];
+    const stepLabels = ['Pendente','Coleta','Triagem','Análise','Liberado'];
+    const curIdx = statusFlow2.indexOf(r.status);
+    
+    document.getElementById('detalhesReqContent').innerHTML = `
+      <!-- Status flow -->
+      <div class="step-flow" style="margin-bottom:20px;">
+        ${stepLabels.map((l,i) => `
+          <div class="step ${i < curIdx ? 'completed' : i === curIdx ? 'current' : ''}">${i < curIdx ? '✓' : i === curIdx ? '▶' : '○'} ${l}</div>
+          ${i < stepLabels.length-1 ? '<div class="step-divider"></div>' : ''}
+        `).join('')}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div><strong>Paciente</strong><p style="color:var(--text-secondary);margin-top:4px;">${r.paciente_nome} ${r.cpf_mask ? '('+r.cpf_mask+')' : ''}</p></div>
+        <div><strong>Solicitante</strong><p style="color:var(--text-secondary);margin-top:4px;">${r.profissional_nome || '—'} ${r.crm ? '/ '+r.crm : ''}</p></div>
+        <div><strong>Convênio</strong><p style="color:var(--text-secondary);margin-top:4px;">${r.convenio_nome || 'Particular'}</p></div>
+        <div><strong>Data</strong><p style="color:var(--text-secondary);margin-top:4px;">${formatDateTime(r.data_solicitacao)}</p></div>
+        ${r.observacoes ? `<div style="grid-column:1/-1;"><strong>Observações</strong><p style="color:var(--text-secondary);margin-top:4px;">${r.observacoes}</p></div>` : ''}
+      </div>
+
+      <!-- Exames -->
+      <strong style="font-size:0.875rem;">🧪 Exames (${r.itens?.length || 0})</strong>
+      <div style="margin-top:12px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="padding:10px 14px;text-align:left;font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Exame</th>
+              <th style="padding:10px 14px;text-align:left;font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Resultado</th>
+              <th style="padding:10px 14px;text-align:left;font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Referência</th>
+              <th style="padding:10px 14px;text-align:left;font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Status</th>
+              ${r.status === 'analise' || r.status === 'liberado' ? '<th style="padding:10px 14px;text-align:left;font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Ação</th>' : ''}
+            </tr>
+          </thead>
+          <tbody id="itensTable">
+            ${(r.itens || []).map(item => `
+              <tr style="border-bottom:1px solid var(--border-light);">
+                <td style="padding:12px 14px;">
+                  <div style="font-weight:600;font-size:0.875rem;">${item.exame_nome}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);">${item.codigo} · ${item.material_biologico || ''}</div>
+                </td>
+                <td style="padding:12px 14px;" id="resultTd_${item.id}">
+                  ${item.resultado ? `
+                    <span style="font-weight:700;font-size:0.95rem;">${item.resultado}</span>
+                    <span style="color:var(--text-muted);font-size:0.8rem;margin-left:4px;">${item.unidade || ''}</span>
+                    <div style="margin-top:2px;">${formatInterpretacao(item.interpretacao)}</div>
+                  ` : '<span style="color:var(--text-muted);">—</span>'}
+                </td>
+                <td style="padding:12px 14px;font-size:0.8rem;color:var(--text-secondary);max-width:150px;">
+                  ${item.referencia ? (item.referencia.valor_texto || (item.referencia.valor_min != null ? `${item.referencia.valor_min} – ${item.referencia.valor_max} ${item.referencia.unidade||''}` : '—')) : '—'}
+                </td>
+                <td style="padding:12px 14px;">
+                  <span class="badge ${item.status === 'concluido' ? 'badge-success' : item.status === 'analise' ? 'badge-primary' : 'badge-warning'}">${item.status}</span>
+                </td>
+                ${(r.status === 'analise' || r.status === 'liberado') ? `
+                <td style="padding:12px 14px;">
+                  <button class="btn btn-ghost btn-sm" onclick="editarResultado(${item.id}, ${r.id}, '${item.exame_nome}', '${item.resultado||''}', '${item.unidade||item.exame_unidade||''}')">✏️ Resultado</button>
+                </td>` : ''}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${r.status !== 'liberado' && r.status !== 'cancelado' ? 
+          `<button class="btn btn-primary btn-sm" onclick="avancarStatus(${r.id}, '${r.status}');closeModal('modalDetalhesReq');">▶️ Avançar Status</button>` : ''}
+        ${r.status === 'analise' || r.status === 'liberado' ? 
+          `<button class="btn btn-success btn-sm" data-role="admin,biomedico" onclick="gerarLaudo(${r.id})">📄 Gerar Laudo PDF</button>` : ''}
+        ${r.status !== 'cancelado' ? 
+          `<button class="btn btn-danger btn-sm" onclick="cancelarReq(${r.id})">❌ Cancelar</button>` : ''}
+      </div>`;
+
+    openModal('modalDetalhesReq');
+  } catch (err) { showToast('Erro ao carregar requisição', 'error'); }
+}
+
+let editResultadoData = {};
+
+function editarResultado(itemId, reqId, exameNome, resultadoAtual, unidade) {
+  editResultadoData = { itemId, reqId };
+  const resultado = prompt(`Resultado para "${exameNome}"\nUnidade: ${unidade}\n\nDigite o valor:`, resultadoAtual);
+  if (resultado === null) return;
+  const interp = prompt('Interpretação: (normal/alto/baixo/critico)', 'normal');
+  salvarResultadoItem(itemId, reqId, resultado, unidade, interp);
+}
+
+async function salvarResultadoItem(itemId, reqId, resultado, unidade, interpretacao) {
+  try {
+    await apiRequest(`/requisicoes/${reqId}/resultados`, {
+      method: 'PUT',
+      body: JSON.stringify({ resultados: [{ item_id: itemId, resultado, resultado_numerico: parseFloat(resultado), unidade, interpretacao }] })
+    });
+    showToast('Resultado salvo com sucesso', 'success');
+    verDetalhesReq(reqId);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function gerarLaudo(reqId) {
+  if (!await confirmAction('Gerar e assinar o laudo desta requisição?')) return;
+  try {
+    showLoading();
+    const data = await apiRequest(`/laudos/gerar/${reqId}`, { method: 'POST' });
+    hideLoading();
+    showToast(`Laudo ${data.numero_laudo} gerado com sucesso!`, 'success');
+    window.open(data.pdf_url, '_blank');
+    closeModal('modalDetalhesReq');
+    loadRequisicoes();
+  } catch (err) { hideLoading(); showToast(err.message, 'error'); }
+}
+
+async function cancelarReq(id) {
+  if (!await confirmAction('Cancelar esta requisição?')) return;
+  try {
+    await apiRequest(`/requisicoes/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) });
+    showToast('Requisição cancelada', 'warning');
+    closeModal('modalDetalhesReq');
+    loadRequisicoes();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// Nova requisição
+async function abrirNovaRequisicao() {
+  exameSelecionadosList = [];
+  renderSelecionados();
+  await loadExamesDisponiveis();
+  await loadSelects();
+  
+  const reqPac = localStorage.getItem('req_paciente');
+  if (reqPac) {
+    const pac = JSON.parse(reqPac);
+    document.getElementById('reqPacienteId').value = pac.id;
+    document.getElementById('reqPacienteNome').value = pac.nome;
+    localStorage.removeItem('req_paciente');
+  }
+
+  openModal('modalNovaReq');
+}
+
+async function loadSelects() {
+  try {
+    const [profissionais, convenios] = await Promise.all([
+      apiRequest('/profissionais'),
+      apiRequest('/convenios')
+    ]);
+    document.getElementById('reqProfissional').innerHTML = '<option value="">Selecione</option>' + profissionais.map(p => `<option value="${p.id}">${p.nome} (${p.crm || 'Sem CRM'})</option>`).join('');
+    document.getElementById('reqConvenio').innerHTML = '<option value="">Particular</option>' + convenios.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  } catch {}
+}
+
+async function loadExamesDisponiveis() {
+  try {
+    [todosExames, categorias] = await Promise.all([
+      apiRequest('/exames'),
+      apiRequest('/exames/categorias')
+    ]);
+    renderCategorias();
+    renderExames(todosExames);
+  } catch {}
+}
+
+function renderCategorias() {
+  document.getElementById('categoriaChips').innerHTML = `
+    <div class="chip ${!catFiltro ? 'selected' : ''}" onclick="catFiltro=null;document.querySelectorAll('#categoriaChips .chip').forEach(c=>c.classList.remove('selected'));this.classList.add('selected');filtrarExames()">Todos</div>
+    ${categorias.map(c => `<div class="chip" style="${catFiltro===c.id?'background:'+c.cor+';color:white;border-color:'+c.cor:''}" onclick="catFiltro=${c.id};document.querySelectorAll('#categoriaChips .chip').forEach(ch=>ch.classList.remove('selected'));this.classList.add('selected');this.style.background='${c.cor}';this.style.color='white';filtrarExames()">${c.nome}</div>`).join('')}`;
+}
+
+function filtrarExames() {
+  const search = document.getElementById('exameSearch').value.toLowerCase();
+  let filtered = todosExames;
+  if (catFiltro) filtered = filtered.filter(e => e.categoria_id === catFiltro);
+  if (search) filtered = filtered.filter(e => e.nome.toLowerCase().includes(search) || e.codigo.toLowerCase().includes(search));
+  renderExames(filtered);
+}
+
+function renderExames(exames) {
+  const lista = document.getElementById('listaExames');
+  if (!exames.length) { lista.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.8rem;">Nenhum exame encontrado</div>'; return; }
+  lista.innerHTML = exames.map(e => {
+    const selecionado = exameSelecionadosList.some(s => s.id === e.id);
+    return `<div style="padding:10px 14px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;gap:10px;cursor:pointer;${selecionado?'background:rgba(5,150,105,0.05);':''}" onclick="toggleExame(${e.id})">
+      <span style="font-size:1.1rem;">${selecionado ? '✅' : '⬜'}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.nome}</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);">${e.codigo} · ${e.material_biologico || ''} ${e.tempo_jejum > 0 ? '· Jejum: '+e.tempo_jejum+'h' : ''}</div>
+      </div>
+      <span style="font-size:0.75rem;font-weight:600;color:var(--success-light);">${formatCurrency(e.preco)}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleExame(id) {
+  const exame = todosExames.find(e => e.id === id);
+  if (!exame) return;
+  const idx = exameSelecionadosList.findIndex(e => e.id === id);
+  if (idx >= 0) exameSelecionadosList.splice(idx, 1);
+  else exameSelecionadosList.push(exame);
+  renderSelecionados();
+  filtrarExames();
+}
+
+function renderSelecionados() {
+  const container = document.getElementById('exameSelecionados');
+  document.getElementById('totalSelecionados').textContent = exameSelecionadosList.length;
+  const total = exameSelecionadosList.reduce((s, e) => s + (e.preco || 0), 0);
+  document.getElementById('totalPreco').textContent = formatCurrency(total);
+  
+  if (!exameSelecionadosList.length) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">Nenhum exame selecionado</div>';
+    return;
+  }
+  container.innerHTML = exameSelecionadosList.map(e => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border-light);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.nome}</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);">${formatCurrency(e.preco)}</div>
+      </div>
+      <button onclick="toggleExame(${e.id})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+  `).join('');
+}
+
+function buscarPaciente() { openModal('modalBuscaPaciente'); }
+
+async function doBuscarPaciente() {
+  const q = document.getElementById('buscaPacienteInput').value;
+  if (!q) return;
+  try {
+    const data = await apiRequest(`/pacientes?search=${encodeURIComponent(q)}`);
+    document.getElementById('resultadosBusca').innerHTML = !data.data?.length
+      ? '<p style="color:var(--text-muted);text-align:center;padding:16px;font-size:0.875rem;">Nenhum paciente encontrado</p>'
+      : data.data.map(p => `
+        <div style="padding:12px;border-bottom:1px solid var(--border-light);cursor:pointer;border-radius:var(--radius);" 
+          onclick="selecionarPaciente(${p.id},'${p.nome.replace(/'/g,"\\'")}')">
+          <div style="font-weight:600;">${p.nome}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">${p.cpf_mask || ''} · ${p.data_nascimento ? calcIdade(p.data_nascimento) : ''} · ${p.convenio_nome || 'Particular'}</div>
+        </div>`).join('');
+  } catch {}
+}
+
+function selecionarPaciente(id, nome) {
+  document.getElementById('reqPacienteId').value = id;
+  document.getElementById('reqPacienteNome').value = nome;
+  closeModal('modalBuscaPaciente');
+}
+
+async function salvarRequisicao() {
+  const pacienteId = document.getElementById('reqPacienteId').value;
+  if (!pacienteId) { showToast('Selecione um paciente', 'warning'); return; }
+  if (!exameSelecionadosList.length) { showToast('Selecione ao menos um exame', 'warning'); return; }
+
+  try {
+    const data = await apiRequest('/requisicoes', {
+      method: 'POST',
+      body: JSON.stringify({
+        paciente_id: parseInt(pacienteId),
+        profissional_id: document.getElementById('reqProfissional').value || null,
+        convenio_id: document.getElementById('reqConvenio').value || null,
+        num_guia: document.getElementById('reqNumGuia').value,
+        urgente: document.getElementById('reqUrgente').checked,
+        observacoes: document.getElementById('reqObs').value,
+        exames: exameSelecionadosList.map(e => e.id)
+      })
+    });
+    showToast(`Requisição ${data.numero} criada com sucesso!`, 'success');
+    closeModal('modalNovaReq');
+    loadRequisicoes();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// Check for pre-selected patient
+const reqPac = localStorage.getItem('req_paciente');
+if (reqPac) abrirNovaRequisicao();
+
+loadRequisicoes();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LabSystem - Sistema de Gestão para Laboratório de Análises Clínicas com conformidade LGPD">
+  <title>LabSystem - Acesso ao Sistema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+
+<div class="login-card">
+  <div class="login-logo">
+    <div class="login-logo-icon">🔬</div>
+    <h1>LabSystem</h1>
+    <p>Laboratório de Análises Clínicas</p>
+  </div>
+
+  <div class="login-demo-info">
+    <strong>🧪 Credenciais de Demonstração</strong>
+    Admin: admin@labsystem.com / Admin@123<br>
+    Biomédico: biomedico@labsystem.com / Bio@123<br>
+    Recepção: recepcao@labsystem.com / Rec@123
+  </div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label class="form-label" for="email">Email</label>
+      <div class="input-wrapper">
+        <span class="input-icon">✉️</span>
+        <input type="email" id="email" class="form-control has-icon" placeholder="seu@email.com" required autocomplete="email">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="senha">Senha</label>
+      <div class="input-wrapper">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="senha" class="form-control has-icon" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+    </div>
+
+    <div id="loginError" class="alert alert-danger" style="display:none;"></div>
+
+    <button type="submit" id="loginBtn" class="btn btn-primary btn-lg" style="width:100%; margin-top:8px;">
+      <span id="loginBtnText">Entrar no Sistema</span>
+    </button>
+  </form>
+
+  <div style="margin-top:24px; text-align:center; font-size:0.75rem; color:var(--text-muted);">
+    🔐 Acesso protegido por autenticação JWT · Dados criptografados<br>
+    <span style="color:var(--accent-light); margin-top:4px; display:block;">Conforme LGPD - Lei 13.709/2018</span>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+  // Check if already logged in
+  if (localStorage.getItem('lab_token')) {
+    window.location.href = 'dashboard.html';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const btnText = document.getElementById('loginBtnText');
+    const errorDiv = document.getElementById('loginError');
+
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="spinner">⏳</span> Autenticando...';
+    errorDiv.style.display = 'none';
+
+    const email = document.getElementById('email').value;
+    const senha = document.getElementById('senha').value;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, senha })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorDiv.textContent = data.error || 'Erro ao fazer login';
+        errorDiv.style.display = 'flex';
+        btn.disabled = false;
+        btnText.textContent = 'Entrar no Sistema';
+        return;
+      }
+
+      localStorage.setItem('lab_token', data.token);
+      localStorage.setItem('lab_usuario', JSON.stringify(data.usuario));
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      errorDiv.textContent = 'Erro de conexão. Verifique se o servidor está rodando.';
+      errorDiv.style.display = 'flex';
+      btn.disabled = false;
+      btnText.textContent = 'Entrar no Sistema';
+    }
+  });
+</script>
+</body>
+</html>

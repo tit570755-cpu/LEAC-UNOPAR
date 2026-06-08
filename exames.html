@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo de Exames - LabSystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+      <div class="search-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="searchExame" placeholder="Buscar exame por nome ou código..." oninput="debounce(loadExames,300)()">
+        </div>
+        <select class="form-control" id="filtroCategoria" onchange="loadExames()" style="width:200px;">
+          <option value="">Todas as categorias</option>
+        </select>
+        <button class="btn btn-primary" onclick="abrirModalExame()">➕ Novo Exame</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🧪 Catálogo de Exames</span>
+          <span id="totalExames" class="badge badge-primary">—</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Exame</th>
+                <th>Categoria</th>
+                <th>Material</th>
+                <th>Tubo</th>
+                <th>Jejum</th>
+                <th>Prazo</th>
+                <th>Preço</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaExames"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Exame -->
+<div class="modal-overlay" id="modalExame" style="display:none;">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">🧪 <span id="titleModalExame">Novo Exame</span></span>
+      <button class="modal-close" onclick="closeModal('modalExame')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="exameId">
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Código *</label>
+          <input type="text" class="form-control" id="exameCodigo" placeholder="Ex: HEM001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome *</label>
+          <input type="text" class="form-control" id="exameNome" placeholder="Nome do exame">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select class="form-control" id="exameCategoriaId">
+            <option value="">Selecione</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Método</label>
+          <input type="text" class="form-control" id="exameMetodo" placeholder="Método analítico">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unidade de Medida</label>
+          <input type="text" class="form-control" id="exameUnidade" placeholder="mg/dL, U/L, %...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Material Biológico</label>
+          <select class="form-control" id="exameMaterial">
+            <option value="">Selecione</option>
+            <option>Sangue venoso</option><option>Sangue arterial</option>
+            <option>Urina</option><option>Urina 24h</option>
+            <option>Fezes</option><option>Liquido cefalorraquidiano</option>
+            <option>Secreção</option><option>Swab nasofaríngeo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de Tubo</label>
+          <select class="form-control" id="exameTubo">
+            <option value="">Selecione</option>
+            <option>EDTA (Roxo)</option><option>Soro (Vermelho/Amarelo)</option>
+            <option>Fluoreto (Cinza)</option><option>Citrato (Azul)</option>
+            <option>Heparina (Verde)</option><option>Frasco de urina estéril</option>
+            <option>Frasco de hemocultura</option><option>Frasco para fezes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Volume (mL)</label>
+          <input type="number" class="form-control" id="exameVolume" placeholder="5" step="0.1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tempo de Jejum (h)</label>
+          <input type="number" class="form-control" id="exameJejum" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo Resultado (h)</label>
+          <input type="number" class="form-control" id="examePrazo" placeholder="24">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Preço (R$)</label>
+          <input type="number" class="form-control" id="examePreco" placeholder="0.00" step="0.01">
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Instruções de Coleta</label>
+          <textarea class="form-control" id="exameInstrucoes" rows="2" placeholder="Instruções ao paciente para coleta..."></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <strong style="font-size:0.875rem;">📊 Valores de Referência</strong>
+          <button class="btn btn-ghost btn-sm" onclick="addRef()">+ Adicionar</button>
+        </div>
+        <div id="refsContainer"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalExame')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarExame()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal detalhes exame -->
+<div class="modal-overlay" id="modalDetalhesExame" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="titleDetalhesExame">Detalhes do Exame</span>
+      <button class="modal-close" onclick="closeModal('modalDetalhesExame')">✕</button>
+    </div>
+    <div class="modal-body" id="detalhesExameContent"></div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+requireAuth();
+document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+document.getElementById('topbarContainer').innerHTML = renderTopbar('Catálogo de Exames', 'Gerenciamento do catálogo laboratorial');
+initSidebar('exames');
+
+let categoriasList = [];
+let refsCount = 0;
+
+async function loadCategorias() {
+  categoriasList = await apiRequest('/exames/categorias');
+  const selFiltro = document.getElementById('filtroCategoria');
+  const selModal = document.getElementById('exameCategoriaId');
+  const opts = categoriasList.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  selFiltro.innerHTML += opts;
+  selModal.innerHTML += opts;
+}
+
+async function loadExames() {
+  const search = document.getElementById('searchExame').value;
+  const cat = document.getElementById('filtroCategoria').value;
+  const params = new URLSearchParams();
+  if (search) params.append('search', search);
+  if (cat) params.append('categoria', cat);
+  
+  try {
+    const exames = await apiRequest(`/exames?${params}`);
+    document.getElementById('totalExames').textContent = `${exames.length} exames`;
+    const tbody = document.getElementById('tabelaExames');
+    if (!exames.length) {
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🧪</div><h3>Nenhum exame encontrado</h3></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = exames.map(e => {
+      const cat = categoriasList.find(c => c.id === e.categoria_id);
+      return `<tr>
+        <td style="font-family:monospace;font-weight:700;color:var(--accent-light);">${e.codigo}</td>
+        <td>
+          <div style="font-weight:600;">${e.nome}</div>
+          ${e.sinonimos ? `<div style="font-size:0.72rem;color:var(--text-muted);">${e.sinonimos}</div>` : ''}
+        </td>
+        <td>${cat ? `<span class="badge" style="background:${cat.cor}20;color:${cat.cor};border-color:${cat.cor}40;">${cat.nome}</span>` : '—'}</td>
+        <td style="font-size:0.8rem;">${e.material_biologico || '—'}</td>
+        <td style="font-size:0.8rem;color:var(--text-secondary);">${e.tipo_tubo || '—'}</td>
+        <td style="font-size:0.8rem;">${e.tempo_jejum > 0 ? `⏱ ${e.tempo_jejum}h` : '—'}</td>
+        <td style="font-size:0.8rem;">${e.prazo_resultado_horas}h</td>
+        <td style="font-weight:600;color:var(--success-light);">${formatCurrency(e.preco)}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="verDetalhesExame(${e.id})" title="Detalhes">👁️</button>
+            <button class="btn btn-ghost btn-sm" onclick="editarExame(${e.id})" title="Editar">✏️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch { showToast('Erro ao carregar exames', 'error'); }
+}
+
+async function verDetalhesExame(id) {
+  const e = await apiRequest(`/exames/${id}`);
+  document.getElementById('titleDetalhesExame').textContent = `🧪 ${e.nome}`;
+  document.getElementById('detalhesExameContent').innerHTML = `
+    <div style="display:grid;gap:12px;">
+      <div><strong>Código</strong><p style="color:var(--accent-light);font-family:monospace;font-weight:700;margin-top:4px;">${e.codigo}</p></div>
+      <div><strong>Método</strong><p style="color:var(--text-secondary);margin-top:4px;">${e.metodo || '—'}</p></div>
+      <div><strong>Material Biológico</strong><p style="color:var(--text-secondary);margin-top:4px;">${e.material_biologico || '—'}</p></div>
+      <div><strong>Tubo/Recipiente</strong><p style="color:var(--text-secondary);margin-top:4px;">${e.tipo_tubo || '—'}</p></div>
+      ${e.instrucoes_coleta ? `<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius);padding:12px;">
+        <strong style="color:var(--primary-light);">📋 Instruções de Coleta</strong>
+        <p style="color:var(--text-secondary);margin-top:6px;font-size:0.875rem;">${e.instrucoes_coleta}</p>
+      </div>` : ''}
+      ${e.valores_referencia?.length ? `
+      <div>
+        <strong>📊 Valores de Referência</strong>
+        <div style="margin-top:8px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          ${e.valores_referencia.map(r => `
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border-light);">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="badge ${r.sexo==='M'?'badge-primary':r.sexo==='F'?'badge-info':'badge-gray'}">${r.sexo==='M'?'♂ Masc.':r.sexo==='F'?'♀ Fem.':'Ambos'}</span>
+                <span style="font-size:0.8rem;color:var(--text-muted);">${r.idade_min}-${r.idade_max===999?'∞':r.idade_max} anos</span>
+                <span style="margin-left:auto;font-weight:600;color:var(--success-light);">
+                  ${r.valor_texto || (r.valor_min != null ? `${r.valor_min} – ${r.valor_max} ${r.unidade||''}` : '—')}
+                </span>
+              </div>
+              ${r.descricao ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${r.descricao}</div>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>`;
+  openModal('modalDetalhesExame');
+}
+
+function abrirModalExame() {
+  document.getElementById('exameId').value = '';
+  document.getElementById('titleModalExame').textContent = 'Novo Exame';
+  document.getElementById('exameCodigo').value = '';
+  document.getElementById('exameNome').value = '';
+  document.getElementById('exameMetodo').value = '';
+  document.getElementById('exameUnidade').value = '';
+  document.getElementById('exameMaterial').value = '';
+  document.getElementById('exameTubo').value = '';
+  document.getElementById('exameVolume').value = '';
+  document.getElementById('exameJejum').value = '0';
+  document.getElementById('examePrazo').value = '24';
+  document.getElementById('examePreco').value = '0';
+  document.getElementById('exameInstrucoes').value = '';
+  document.getElementById('refsContainer').innerHTML = '';
+  refsCount = 0;
+  openModal('modalExame');
+}
+
+async function editarExame(id) {
+  const e = await apiRequest(`/exames/${id}`);
+  document.getElementById('exameId').value = e.id;
+  document.getElementById('titleModalExame').textContent = 'Editar Exame';
+  document.getElementById('exameCodigo').value = e.codigo;
+  document.getElementById('exameNome').value = e.nome;
+  document.getElementById('exameCategoriaId').value = e.categoria_id || '';
+  document.getElementById('exameMetodo').value = e.metodo || '';
+  document.getElementById('exameUnidade').value = e.unidade || '';
+  document.getElementById('exameMaterial').value = e.material_biologico || '';
+  document.getElementById('exameTubo').value = e.tipo_tubo || '';
+  document.getElementById('exameVolume').value = e.volume_ml || '';
+  document.getElementById('exameJejum').value = e.tempo_jejum || 0;
+  document.getElementById('examePrazo').value = e.prazo_resultado_horas || 24;
+  document.getElementById('examePreco').value = e.preco || 0;
+  document.getElementById('exameInstrucoes').value = e.instrucoes_coleta || '';
+  
+  document.getElementById('refsContainer').innerHTML = '';
+  refsCount = 0;
+  (e.valores_referencia || []).forEach(ref => addRef(ref));
+  
+  openModal('modalExame');
+}
+
+function addRef(data = {}) {
+  const i = refsCount++;
+  const div = document.createElement('div');
+  div.id = `ref_${i}`;
+  div.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;';
+  div.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button onclick="document.getElementById('ref_${i}').remove()" style="background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>
+    </div>
+    <div class="form-row cols-3">
+      <div class="form-group">
+        <label class="form-label">Sexo</label>
+        <select class="form-control ref-sexo">
+          <option value="ambos" ${data.sexo==='ambos'?'selected':''}>Ambos</option>
+          <option value="M" ${data.sexo==='M'?'selected':''}>Masculino</option>
+          <option value="F" ${data.sexo==='F'?'selected':''}>Feminino</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Idade Mín.</label>
+        <input type="number" class="form-control ref-imin" value="${data.idade_min||0}" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Idade Máx.</label>
+        <input type="number" class="form-control ref-imax" value="${data.idade_max===999?'':data.idade_max||''}" placeholder="999">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor Mín.</label>
+        <input type="number" class="form-control ref-vmin" value="${data.valor_min||''}" step="any" placeholder="—">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor Máx.</label>
+        <input type="number" class="form-control ref-vmax" value="${data.valor_max||''}" step="any" placeholder="—">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Unidade</label>
+        <input type="text" class="form-control ref-unit" value="${data.unidade||''}" placeholder="mg/dL">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Texto de Referência (alternativo)</label>
+        <input type="text" class="form-control ref-texto" value="${data.valor_texto||''}" placeholder="Ex: Negativo / Positivo">
+      </div>
+    </div>`;
+  document.getElementById('refsContainer').appendChild(div);
+}
+
+async function salvarExame() {
+  const id = document.getElementById('exameId').value;
+  const refs = Array.from(document.querySelectorAll('[id^="ref_"]')).map(div => ({
+    sexo: div.querySelector('.ref-sexo').value,
+    idade_min: parseInt(div.querySelector('.ref-imin').value) || 0,
+    idade_max: parseInt(div.querySelector('.ref-imax').value) || 999,
+    valor_min: parseFloat(div.querySelector('.ref-vmin').value) || null,
+    valor_max: parseFloat(div.querySelector('.ref-vmax').value) || null,
+    unidade: div.querySelector('.ref-unit').value,
+    valor_texto: div.querySelector('.ref-texto').value
+  }));
+
+  const payload = {
+    codigo: document.getElementById('exameCodigo').value,
+    nome: document.getElementById('exameNome').value,
+    categoria_id: document.getElementById('exameCategoriaId').value || null,
+    metodo: document.getElementById('exameMetodo').value,
+    unidade: document.getElementById('exameUnidade').value,
+    material_biologico: document.getElementById('exameMaterial').value,
+    tipo_tubo: document.getElementById('exameTubo').value,
+    volume_ml: parseFloat(document.getElementById('exameVolume').value) || 0,
+    tempo_jejum: parseInt(document.getElementById('exameJejum').value) || 0,
+    prazo_resultado_horas: parseInt(document.getElementById('examePrazo').value) || 24,
+    preco: parseFloat(document.getElementById('examePreco').value) || 0,
+    instrucoes_coleta: document.getElementById('exameInstrucoes').value,
+    valores_referencia: refs
+  };
+
+  if (!payload.codigo || !payload.nome) { showToast('Código e nome são obrigatórios', 'warning'); return; }
+
+  try {
+    if (id) {
+      await apiRequest(`/exames/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast('Exame atualizado com sucesso', 'success');
+    } else {
+      await apiRequest('/exames', { method: 'POST', body: JSON.stringify(payload) });
+      showToast('Exame cadastrado com sucesso', 'success');
+    }
+    closeModal('modalExame');
+    loadExames();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+loadCategorias().then(loadExames);
+</script>
+</body>
+</html>
