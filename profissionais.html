@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profissionais - LabSystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+
+      <div class="search-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="searchInput" placeholder="Buscar por nome, CRM, especialidade..." oninput="debounce(loadProfissionais,300)()">
+        </div>
+        <button class="btn btn-primary" onclick="abrirModal()">
+          ➕ Novo Profissional
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">👨‍⚕️ Profissionais Cadastrados</span>
+          <span id="totalProfissionais" class="badge badge-primary">—</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>CRM / Registro</th>
+                <th>Especialidade</th>
+                <th>Telefone</th>
+                <th>Email</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaProfissionais"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Profissional -->
+<div class="modal-overlay" id="modalProfissional" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">👨‍⚕️ <span id="modalTitle">Novo Profissional</span></span>
+      <button class="modal-close" onclick="closeModal('modalProfissional')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="formProfissional">
+        <input type="hidden" id="profId">
+        
+        <div class="form-group">
+          <label class="form-label">Nome Completo *</label>
+          <input type="text" class="form-control" id="profNome" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">CRM / Registro *</label>
+          <input type="text" class="form-control" id="profCrm" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Especialidade</label>
+          <input type="text" class="form-control" id="profEsp">
+        </div>
+
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Telefone</label>
+            <input type="text" class="form-control" id="profTelefone">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="profEmail">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalProfissional')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarProfissional()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+requireAuth();
+document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+document.getElementById('topbarContainer').innerHTML = renderTopbar('Profissionais', 'Gestão de médicos e solicitantes');
+initSidebar('profissionais');
+
+let listAll = [];
+
+async function loadProfissionais() {
+  try {
+    const data = await apiRequest('/profissionais');
+    listAll = data;
+    renderTable();
+  } catch {
+    showToast('Erro ao carregar profissionais', 'error');
+  }
+}
+
+function renderTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = listAll.filter(p => 
+    p.nome.toLowerCase().includes(search) || 
+    (p.crm && p.crm.toLowerCase().includes(search)) || 
+    (p.especialidade && p.especialidade.toLowerCase().includes(search))
+  );
+
+  document.getElementById('totalProfissionais').textContent = filtered.length;
+  const tbody = document.getElementById('tabelaProfissionais');
+  
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Nenhum profissional encontrado</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => `
+    <tr>
+      <td style="font-weight:600;">${p.nome}</td>
+      <td style="font-family:monospace;">${p.crm || '—'}</td>
+      <td><span class="badge badge-info">${p.especialidade || 'Geral'}</span></td>
+      <td>${p.telefone || '—'}</td>
+      <td style="color:var(--text-muted);font-size:0.8rem;">${p.email || '—'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editarProfissional(${p.id})">✏️ Editar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function abrirModal() {
+  document.getElementById('formProfissional').reset();
+  document.getElementById('profId').value = '';
+  document.getElementById('modalTitle').textContent = 'Novo Profissional';
+  openModal('modalProfissional');
+}
+
+async function editarProfissional(id) {
+  try {
+    const p = await apiRequest('/profissionais/' + id);
+    document.getElementById('profId').value = p.id;
+    document.getElementById('modalTitle').textContent = 'Editar Profissional';
+    document.getElementById('profNome').value = p.nome || '';
+    document.getElementById('profCrm').value = p.crm || '';
+    document.getElementById('profEsp').value = p.especialidade || '';
+    document.getElementById('profTelefone').value = p.telefone || '';
+    document.getElementById('profEmail').value = p.email || '';
+    openModal('modalProfissional');
+  } catch {
+    showToast('Erro ao carregar', 'error');
+  }
+}
+
+async function salvarProfissional() {
+  const id = document.getElementById('profId').value;
+  const payload = {
+    nome: document.getElementById('profNome').value,
+    crm: document.getElementById('profCrm').value,
+    especialidade: document.getElementById('profEsp').value,
+    telefone: document.getElementById('profTelefone').value,
+    email: document.getElementById('profEmail').value
+  };
+
+  if (!payload.nome || !payload.crm) {
+    showToast('Nome e CRM são obrigatórios', 'warning');
+    return;
+  }
+
+  try {
+    if (id) {
+      await apiRequest('/profissionais/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast('Atualizado com sucesso', 'success');
+    } else {
+      await apiRequest('/profissionais', { method: 'POST', body: JSON.stringify(payload) });
+      showToast('Cadastrado com sucesso', 'success');
+    }
+    closeModal('modalProfissional');
+    loadProfissionais();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+loadProfissionais();
+</script>
+</body>
+</html>

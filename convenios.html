@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convênios - LabSystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div id="topbarContainer"></div>
+    <div class="page-content">
+
+      <div class="search-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="searchInput" placeholder="Buscar convênio..." oninput="debounce(loadConvenios,300)()">
+        </div>
+        <button class="btn btn-primary" onclick="abrirModal()">
+          ➕ Novo Convênio
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🏥 Convênios Cadastrados</span>
+          <span id="totalConvenios" class="badge badge-primary">—</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Código ANS</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaConvenios"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Convênio -->
+<div class="modal-overlay" id="modalConvenio" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🏥 <span id="modalTitle">Novo Convênio</span></span>
+      <button class="modal-close" onclick="closeModal('modalConvenio')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="formConvenio">
+        <input type="hidden" id="convId">
+        
+        <div class="form-group">
+          <label class="form-label">Nome do Convênio *</label>
+          <input type="text" class="form-control" id="convNome" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Código ANS / Ref *</label>
+          <input type="text" class="form-control" id="convCodigo" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control" id="convTipo">
+            <option value="convenio">Convênio Padrão</option>
+            <option value="particular">Particular</option>
+            <option value="sus">SUS</option>
+          </select>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalConvenio')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarConvenio()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/layout.js"></script>
+<script>
+requireAuth();
+document.getElementById('sidebarContainer').innerHTML = renderSidebar();
+document.getElementById('topbarContainer').innerHTML = renderTopbar('Convênios', 'Tabela de operadoras e convênios aceitos');
+initSidebar('convenios');
+
+let listAll = [];
+
+async function loadConvenios() {
+  try {
+    const data = await apiRequest('/convenios');
+    listAll = data;
+    renderTable();
+  } catch {
+    showToast('Erro ao carregar convênios', 'error');
+  }
+}
+
+function renderTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = listAll.filter(c => 
+    c.nome.toLowerCase().includes(search) || 
+    (c.codigo && c.codigo.toLowerCase().includes(search))
+  );
+
+  document.getElementById('totalConvenios').textContent = filtered.length;
+  const tbody = document.getElementById('tabelaConvenios');
+  
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">Nenhum convênio encontrado</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(c => `
+    <tr>
+      <td style="font-family:monospace; font-weight:600; color:var(--accent-light);">${c.codigo || '—'}</td>
+      <td style="font-weight:600;">${c.nome}</td>
+      <td>
+        <span class="badge ${c.tipo === 'sus' ? 'badge-success' : c.tipo === 'particular' ? 'badge-primary' : 'badge-info'}">
+          ${c.tipo ? c.tipo.toUpperCase() : 'CONVÊNIO'}
+        </span>
+      </td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editarConvenio(${c.id})">✏️ Editar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function abrirModal() {
+  document.getElementById('formConvenio').reset();
+  document.getElementById('convId').value = '';
+  document.getElementById('modalTitle').textContent = 'Novo Convênio';
+  openModal('modalConvenio');
+}
+
+async function editarConvenio(id) {
+  try {
+    const c = await apiRequest('/convenios/' + id);
+    document.getElementById('convId').value = c.id;
+    document.getElementById('modalTitle').textContent = 'Editar Convênio';
+    document.getElementById('convNome').value = c.nome || '';
+    document.getElementById('convCodigo').value = c.codigo || '';
+    document.getElementById('convTipo').value = c.tipo || 'convenio';
+    openModal('modalConvenio');
+  } catch {
+    showToast('Erro ao carregar', 'error');
+  }
+}
+
+async function salvarConvenio() {
+  const id = document.getElementById('convId').value;
+  const payload = {
+    nome: document.getElementById('convNome').value,
+    codigo: document.getElementById('convCodigo').value,
+    tipo: document.getElementById('convTipo').value
+  };
+
+  if (!payload.nome || !payload.codigo) {
+    showToast('Nome e Código são obrigatórios', 'warning');
+    return;
+  }
+
+  try {
+    if (id) {
+      await apiRequest('/convenios/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast('Atualizado com sucesso', 'success');
+    } else {
+      await apiRequest('/convenios', { method: 'POST', body: JSON.stringify(payload) });
+      showToast('Cadastrado com sucesso', 'success');
+    }
+    closeModal('modalConvenio');
+    loadConvenios();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+loadConvenios();
+</script>
+</body>
+</html>

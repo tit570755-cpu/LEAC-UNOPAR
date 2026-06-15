@@ -691,6 +691,28 @@ async function mockApiHandler(url, init = {}) {
   if (path === '/convenios' && method === 'GET') {
     return response(db.convenios);
   }
+  if (path.startsWith('/convenios/') && method === 'GET') {
+    const id = parseInt(path.split('/')[2]);
+    const item = db.convenios.find(c => c.id === id);
+    if (!item) return response({ error: 'Não encontrado' }, 404);
+    return response(item);
+  }
+  if (path === '/convenios' && method === 'POST') {
+    const id = db.convenios.length ? Math.max(...db.convenios.map(c => c.id)) + 1 : 1;
+    const newItem = { id, ...body };
+    db.convenios.push(newItem);
+    saveLocalDb(db);
+    logAudit('Criação de Convênio', `Cadastrou o convênio ${newItem.nome}`);
+    return response(newItem);
+  }
+  if (path.startsWith('/convenios/') && method === 'PUT') {
+    const id = parseInt(path.split('/')[2]);
+    const idx = db.convenios.findIndex(c => c.id === id);
+    if (idx === -1) return response({ error: 'Não encontrado' }, 404);
+    db.convenios[idx] = { ...db.convenios[idx], ...body };
+    saveLocalDb(db);
+    return response(db.convenios[idx]);
+  }
 
   // Categorias
   if (path === '/exames/categorias' && method === 'GET') {
@@ -739,6 +761,28 @@ async function mockApiHandler(url, init = {}) {
   // Profissionais
   if (path === '/profissionais' && method === 'GET') {
     return response(db.profissionais);
+  }
+  if (path.startsWith('/profissionais/') && method === 'GET') {
+    const id = parseInt(path.split('/')[2]);
+    const item = db.profissionais.find(p => p.id === id);
+    if (!item) return response({ error: 'Não encontrado' }, 404);
+    return response(item);
+  }
+  if (path === '/profissionais' && method === 'POST') {
+    const id = db.profissionais.length ? Math.max(...db.profissionais.map(p => p.id)) + 1 : 1;
+    const newItem = { id, ...body };
+    db.profissionais.push(newItem);
+    saveLocalDb(db);
+    logAudit('Criação de Profissional', `Cadastrou ${newItem.nome}`);
+    return response(newItem);
+  }
+  if (path.startsWith('/profissionais/') && method === 'PUT') {
+    const id = parseInt(path.split('/')[2]);
+    const idx = db.profissionais.findIndex(p => p.id === id);
+    if (idx === -1) return response({ error: 'Não encontrado' }, 404);
+    db.profissionais[idx] = { ...db.profissionais[idx], ...body };
+    saveLocalDb(db);
+    return response(db.profissionais[idx]);
   }
 
   // Pacientes
