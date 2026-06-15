@@ -29,7 +29,7 @@ function initLocalDb() {
     { id: 3, nome: 'Bradesco Saúde', codigo: 'BRAD', tipo: 'convenio' },
     { id: 4, nome: 'Amil', codigo: 'AMIL', tipo: 'convenio' },
     { id: 5, nome: 'SulAmérica', codigo: 'SULA', tipo: 'convenio' },
-    { id: 6, nome: 'SUS', codigo: 'SUS', tipo: 'sus' },
+    { id: 6, nome: 'SUS - CISNORP', codigo: 'SUS', tipo: 'sus' },
     { id: 7, nome: 'Hapvida', codigo: 'HAP', tipo: 'convenio' },
     { id: 8, nome: 'NotreDame Intermédica', codigo: 'NDI', tipo: 'convenio' }
   ];
@@ -259,7 +259,16 @@ function getLocalDb() {
     return initialized;
   }
   try {
-    return JSON.parse(db);
+    const parsed = JSON.parse(db);
+    // Migration: Update SUS name
+    if (parsed.convenios) {
+      const sus = parsed.convenios.find(c => c.id === 6 && c.codigo === 'SUS');
+      if (sus && sus.nome === 'SUS') {
+        sus.nome = 'SUS - CISNORP';
+        localStorage.setItem('labsystem_db', JSON.stringify(parsed));
+      }
+    }
+    return parsed;
   } catch {
     const initialized = initLocalDb();
     localStorage.setItem('labsystem_db', JSON.stringify(initialized));
@@ -742,7 +751,11 @@ async function mockApiHandler(url, init = {}) {
     } else {
       logAudit('Consulta Geral', 'Acessou a listagem geral de pacientes.');
     }
-    return response(list);
+    const page = parseInt(queryParams.page) || 1;
+    const limit = parseInt(queryParams.limit) || 15;
+    const start = (page - 1) * limit;
+    const paginated = list.slice(start, start + limit);
+    return response({ data: paginated, total: list.length });
   }
 
   if (path.startsWith('/pacientes/') && path.endsWith('/historico') && method === 'GET') {
